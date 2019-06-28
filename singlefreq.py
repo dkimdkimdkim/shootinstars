@@ -20,6 +20,7 @@ LO_CUT = 600
 HI_CUT = 1500
 
 MAX_BRIGHTNESS = 254
+MIN_BRIGHTNESS = 100
 MAX_HUE = 65534
 
 MAX_FREQUENCY = 20000
@@ -63,7 +64,10 @@ def device_response(device_object, normalized_freq, normalized_amplitude):
     else:
         device_object.transitiontime = 1
         device_object.on = True
-        device_object.brightness = min(int(MAX_BRIGHTNESS * normalized_amplitude), MAX_BRIGHTNESS)
+
+        clipped_brightness = min(int(MAX_BRIGHTNESS * normalized_amplitude), MAX_BRIGHTNESS)
+        floored_brightness = min(clipped_brightness, MIN_BRIGHTNESS)
+        device_object.brightness = floored_brightness
         # device_object.hue = random.randint(0, MAX_HUE)# min(int(MAX_HUE * normalized_freq), MAX_HUE)
         device_object.hue = light_hue
         device_object.transitiontime = 30

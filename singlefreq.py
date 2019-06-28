@@ -7,16 +7,20 @@ from phue import Bridge
 import logging
 logging.basicConfig()
 
-b = Bridge('10.1.11.117')
+b = Bridge('192.168.1.104')
 
 b.connect()
 
 LEFT = 'Hue play L'
 RIGHT = 'Hue play R'
-CENTER = 'Hue color lamp 1'
-ALL = [LEFT, RIGHT, CENTER]
+# CENTER = 'Hue color lamp 1'
+NIGHTSTAND = 'Nightstand color lamp'
+TALL = 'Tall color lamp'
+# ALL = [LEFT, RIGHT, CENTER]
+ALL = [LEFT, TALL, NIGHTSTAND, RIGHT]
 
 LO_CUT = 600
+MID_CUT = 1000
 HI_CUT = 1500
 
 MAX_BRIGHTNESS = 254
@@ -51,7 +55,8 @@ b.set_light(ALL, {'transitiontime': 1, 'on': False})
 # Get a dictionary with the light name as the key
 light_names = b.get_light_objects('name')
 LEFT_OBJ = light_names[LEFT]
-CENTER_OBJ = light_names[CENTER]
+NIGHTSTAND_OBJ = light_names[NIGHTSTAND]
+TALL_OBJ = light_names[TALL]
 RIGHT_OBJ = light_names[RIGHT]
 
 light_hue = INITIAL_HUE
@@ -65,8 +70,8 @@ def device_response(device_object, normalized_freq, normalized_amplitude):
         device_object.transitiontime = 1
         device_object.on = True
 
-        clipped_brightness = min(int(MAX_BRIGHTNESS * normalized_amplitude), MAX_BRIGHTNESS)
-        floored_brightness = min(clipped_brightness, MIN_BRIGHTNESS)
+        clipped_brightness = max(int(MAX_BRIGHTNESS * normalized_amplitude), MAX_BRIGHTNESS)
+        floored_brightness = max(clipped_brightness, MIN_BRIGHTNESS)
         device_object.brightness = floored_brightness
         # device_object.hue = random.randint(0, MAX_HUE)# min(int(MAX_HUE * normalized_freq), MAX_HUE)
         device_object.hue = light_hue
@@ -117,32 +122,15 @@ while True:
     if peak_freq < LO_CUT * (1 + BLEED_OVER):
         normalized_freq = float(peak_freq) / float(LO_CUT)
         device_response(LEFT_OBJ, normalized_freq, normalized_amplitude)
-        # if normalized_amplitude < 0.4:
-        #     LEFT_OBJ.on = False
-        # else:
-        #     LEFT_OBJ.on = True
-        #     LEFT_OBJ.brightness = int(MAX_BRIGHTNESS * normalized_amplitude)
-        #     LEFT_OBJ.hue = int(MAX_HUE * normalized_freq)
-    if peak_freq >= LO_CUT * (1 - BLEED_OVER) and peak_freq <= HI_CUT * (1 + BLEED_OVER):
-        normalized_freq = float(peak_freq - LO_CUT) / float(HI_CUT - LO_CUT)
-        device_response(CENTER_OBJ, normalized_freq, normalized_amplitude)
-        # if normalized_amplitude < LIGHT_THRESHOLD:
-        #     CENTER_OBJ.on = False
-        # else:
-        #     CENTER_OBJ.on = True
-        #     CENTER_OBJ.brightness = int(MAX_BRIGHTNESS * normalized_amplitude)
-        #     CENTER_OBJ.hue = int(MAX_HUE * normalized_freq)
+    if peak_freq >= LO_CUT * (1 - BLEED_OVER) and peak_freq <= MID_CUT * (1 + BLEED_OVER):
+        normalized_freq = float(peak_freq - LO_CUT) / float(MID_CUT - LO_CUT)
+        device_response(TALL_OBJ, normalized_freq, normalized_amplitude)
+    if peak_freq >= MID_CUT * (1 - BLEED_OVER) and peak_freq <= HI_CUT * (1 + BLEED_OVER):
+        normalized_freq = float(peak_freq - MID_CUT) / float(HI_CUT - MID_CUT)
+        device_response(NIGHTSTAND_OBJ, normalized_freq, normalized_amplitude)
     if peak_freq > HI_CUT * (1 - BLEED_OVER):
         normalized_freq = float(peak_freq - HI_CUT) / float(MAX_FREQUENCY - HI_CUT)
         device_response(RIGHT_OBJ, normalized_freq, normalized_amplitude)
-        # if normalized_amplitude < LIGHT_THRESHOLD:
-        #     RIGHT_OBJ.on = False
-        # else:
-        #     RIGHT_OBJ.on = True
-        #     RIGHT_OBJ.brightness = int(MAX_BRIGHTNESS * normalized_amplitude)
-        #     RIGHT_OBJ.hue = int(MAX_HUE * normalized_freq)
-    # print(peak_freq)
-
 
 # close the stream gracefully
 stream.stop_stream()

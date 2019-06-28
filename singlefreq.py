@@ -17,10 +17,10 @@ CENTER = 'Hue color lamp 1'
 ALL = [LEFT, RIGHT, CENTER]
 
 LO_CUT = 600
-HI_CUT = 1000
+HI_CUT = 1500
 
 MAX_BRIGHTNESS = 254
-MAX_HUE = 65535
+MAX_HUE = 65534
 
 MAX_FREQUENCY = 20000
 
@@ -28,11 +28,14 @@ LIGHT_THRESHOLD = 0.1
 
 BLEED_OVER = 0.4
 
+INITIAL_HUE = 0
+HUE_STEP = 2000
+
 import pyaudio
 import numpy as np
 np.set_printoptions(suppress=True) # don't use scientific notation
 
-CHUNK = 4096 * 2 # number of data points to read at a time
+CHUNK = 1024#4096 #* 2 # number of data points to read at a time
 RATE = 44100 # time resolution of the recording device (Hz)
 
 p=pyaudio.PyAudio() # start the PyAudio class
@@ -50,7 +53,10 @@ LEFT_OBJ = light_names[LEFT]
 CENTER_OBJ = light_names[CENTER]
 RIGHT_OBJ = light_names[RIGHT]
 
+light_hue = INITIAL_HUE
+
 def device_response(device_object, normalized_freq, normalized_amplitude):
+    global light_hue
     normalized_freq = float(peak_freq) / float(LO_CUT)
     if normalized_amplitude < LIGHT_THRESHOLD:
         device_object.on = False
@@ -58,9 +64,13 @@ def device_response(device_object, normalized_freq, normalized_amplitude):
         device_object.transitiontime = 1
         device_object.on = True
         device_object.brightness = min(int(MAX_BRIGHTNESS * normalized_amplitude), MAX_BRIGHTNESS)
-        device_object.hue = random.randint(0, MAX_HUE)# min(int(MAX_HUE * normalized_freq), MAX_HUE)
-        # device_object.transitiontime = 10
+        # device_object.hue = random.randint(0, MAX_HUE)# min(int(MAX_HUE * normalized_freq), MAX_HUE)
+        device_object.hue = light_hue
+        device_object.transitiontime = 30
+        device_object.brightness = 0
         device_object.on = False
+
+        light_hue = (light_hue + HUE_STEP) % MAX_HUE
 
 # create a numpy array holding a single read of audio data
 #for i in range(50): #to it a few times just to see
@@ -68,9 +78,16 @@ while True:
     try:
         stream_value = stream.read(CHUNK)
     except IOError as ex:
-        if ex[1] != pyaudio.paInputOverflowed:
-            raise
-        stream_value = '\x00' * CHUNK  # or however you choose to handle it, e.g. return None
+        # if ex[1] != pyaudio.paInputOverflowed:
+        #     raise
+        # stream_value = '\x00' * CHUNK  # or however you choose to handle it, e.g. return None
+        # stream.stop_stream()
+        stream.close()
+        p.terminate()
+        p=pyaudio.PyAudio() # start the PyAudio class
+        stream=p.open(format=pyaudio.paInt16,channels=1,rate=RATE,input=True,
+                      frames_per_buffer=CHUNK) #uses default input device
+        stream_value = stream.read(CHUNK)
 
     data = np.fromstring(stream_value,dtype=np.int16)
     data = data * np.hanning(len(data)) # smooth the FFT by windowing data
